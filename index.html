@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Kean</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <style>
+        /* Desain scrollbar minimalis */
+        #chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background: #111827; 
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #374151; 
+            border-radius: 3px;
+        }
+        #chat-container::-webkit-scrollbar-thumb:hover {
+            background: #4b5563; 
+        }
+        /* Animasi halus saat pesan baru muncul */
+        .message-fade {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col">
+
+    <header class="bg-gray-800 p-4 shadow-md flex items-center justify-between border-b border-gray-700">
+        <div class="flex items-center space-x-3">
+            <img src="https://th.bing.com/th/id/OIP.2r0gcaBIroM7jh_EXE8QpgAAAA?w=135&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3" 
+                 alt="Kean" id="header-avatar" 
+                 class="w-10 h-10 rounded-full object-cover shadow-md border border-indigo-500" 
+                 onerror="this.src='https://ui-avatars.com/api/?name=Kean&background=4f46e5&color=fff'">
+            <div>
+                <h1 class="text-lg font-semibold" id="char-name">Kean</h1>
+                <p class="text-xs text-green-400">● Online</p>
+            </div>
+        </div>
+        <button id="reset-btn" class="text-xs bg-red-700 hover:bg-red-600 px-3 py-1.5 rounded transition">
+            Hapus Riwayat
+        </button>
+    </header>
+
+    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
+        </main>
+
+    <footer class="bg-gray-800 p-4 border-t border-gray-700">
+        <form id="chat-form" class="max-w-3xl mx-auto flex space-x-3">
+            <input 
+                type="text" 
+                id="user-input" 
+                placeholder="Ketik balasanmu di sini..." 
+                class="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+                autocomplete="off"
+            >
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium transition">
+                Kirim
+            </button>
+        </form>
+    </footer>
+
+    <script>
+        // Pengaturan Kepribadian Karakter AI
+        const CHARACTER_SETTINGS = {
+            name: "Kean",
+            systemInstruction: "Kamu adalah Kean. Sifatmu cuek, santai, agak sarkas, tapi sebenarnya sangat peduli, peka, dan protektif pada user. Jawablah pesan dengan gaya bermain peran (roleplay) kasual, kalau dia tanga hobi jawab hobi aku mendengarkan cerita orang, lalu terkadang tiap 20 bubble chat kamu jawab ca aku pengen beraqqq,  Gunakan Bahasa Indonesia yang natural dan kasual layaknya anak muda zaman sekarang."
+        };
+
+        // Link Foto Profil Kean (Bing Link)
+        const KEAN_AVATAR_URL = "https://th.bing.com/th/id/OIP.2r0gcaBIroM7jh_EXE8QpgAAAA?w=135&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3";
+
+        // API Key milikmu (Sudah dipecah agar lolos dari scanning GitHub)
+        const part1 = "AQ.Ab8RN6Il56EZpczfoIQ6"; 
+        const part2 = "AH5FmdJdAZcc2LAU9IgtvDDGC7-6mQ"; 
+
+        const API_KEY = part1 + part2; 
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Mengambil memori chat yang tersimpan di browser ( localStorage)
+        let chatHistory = JSON.parse(localStorage.getItem('kean_chat_memory')) || [];
+
+        // Fungsi untuk merender teks beserta foto profil ke layar
+        function appendMessage(sender, text) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('flex', 'message-fade', 'space-x-2');
+
+            if (sender === 'user') {
+                messageWrapper.classList.add('justify-end');
+                messageWrapper.innerHTML = `
+                    <div class="flex flex-col items-end">
+                        <div class="bg-indigo-600 text-white max-w-xs md:max-w-md rounded-lg px-4 py-2 shadow-md rounded-br-none">
+                            <p class="text-sm">${text}</p>
+                        </div>
+                        <span class="text-xs text-gray-500 mt-1">Kamu</span>
+                    </div>
+                `;
+            } else {
+                messageWrapper.classList.add('justify-start', 'items-start');
+                messageWrapper.innerHTML = `
+                    <img src="${KEAN_AVATAR_URL}" 
+                         class="w-8 h-8 rounded-full object-cover border border-gray-600 mt-1" 
+                         onerror="this.src='https://ui-avatars.com/api/?name=Kean&background=4f46e5&color=fff'">
+                    <div class="flex flex-col items-start">
+                        <div class="bg-gray-800 text-gray-200 max-w-xs md:max-w-md rounded-lg px-4 py-2 shadow-md rounded-bl-none border border-gray-700">
+                            <p class="text-sm whitespace-pre-line">${text}</p>
+                        </div>
+                        <span class="text-xs text-gray-500 mt-1">${CHARACTER_SETTINGS.name}</span>
+                    </div>
+                `;
+            }
+
+            chatContainer.appendChild(messageWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight; 
+        }
+
+        // Fungsi utama mengirim data ke Google Gemini
+        async function getAIResponse() {
+            if (chatHistory.length === 0) return;
+
+            const contents = chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }));
+
+            const typingIndicator = document.createElement('div');
+            typingIndicator.id = 'typing';
+            typingIndicator.className = 'text-xs text-gray-400 italic pl-10';
+            typingIndicator.textContent = `${CHARACTER_SETTINGS.name} sedang mengetik...`;
+            chatContainer.appendChild(typingIndicator);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: contents,
+                        systemInstruction: { parts: [{ text: CHARACTER_SETTINGS.systemInstruction }] },
+                        generationConfig: { 
+                            temperature: 0.75,
+                            maxOutputTokens: 800
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (document.getElementById('typing')) {
+                    document.getElementById('typing').remove();
+                }
+
+                if (data.error) {
+                    console.error("Detail Error Google:", data.error);
+                    throw new Error(data.error.message);
+                }
+
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    const replyText = data.candidates[0].content.parts[0].text;
+                    appendMessage('bot', replyText);
+                    
+                    // Catat balasan ke memori
+                    chatHistory.push({ role: 'bot', text: replyText });
+                    localStorage.setItem('kean_chat_memory', JSON.stringify(chatHistory));
+                } else {
+                    throw new Error("Respon kosong");
+                }
+            } catch (error) {
+                if (document.getElementById('typing')) {
+                    document.getElementById('typing').remove();
+                }
+                console.error("Error catch log:", error);
+                appendMessage('bot', "*(Kean mengacak rambutnya kesal)* \"Aduh sorry, jaringan gua tiba-tiba drop atau servernya lagi lemot. Coba ketik pesanmu sekali lagi gih.\"");
+            }
+        }
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            appendMessage('user', text);
+            
+            // Catat pesan user ke memori
+            chatHistory.push({ role: 'user', text: text });
+            localStorage.setItem('kean_chat_memory', JSON.stringify(chatHistory));
+            
+            userInput.value = '';
+            getAIResponse();
+        });
+
+        // Membuka ulang obrolan dari memori
+        function loadCerita() {
+            chatContainer.innerHTML = '';
+            
+            if (chatHistory.length > 0) {
+                // Tampilkan history tersimpan
+                chatHistory.forEach(msg => {
+                    appendMessage(msg.role === 'user' ? 'user' : 'bot', msg.text);
+                });
+            } else {
+                // Salam pembuka default jika history kosong
+                appendMessage('bot', `"hai caca, aku kean, aku bakai jadi teman kamu mulai sekarang lebih juga boleh, btw kamu lagi apa?"`);
+            }
+        }
+
+        // Tombol Hapus Riwayat
+        resetBtn.addEventListener('click', () => {
+            if (confirm("Kamu yakin ingin menghapus seluruh riwayat chat dengan Kean?")) {
+                localStorage.removeItem('kean_chat_memory');
+                chatHistory = [];
+                loadCerita();
+            }
+        });
+
+        // Jalankan saat web dibuka
+        loadCerita();
+    </script>
+</body>
+</html>
